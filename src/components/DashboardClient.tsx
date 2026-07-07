@@ -5,8 +5,26 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Sparkles, Calendar, BookOpen, UserPlus, Loader2 } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { 
+  Sparkles, 
+  Calendar, 
+  BookOpen, 
+  User, 
+  MapPin, 
+  Compass, 
+  Scroll, 
+  Edit3, 
+  ArrowRight, 
+  ArrowLeft, 
+  Plus, 
+  Trash2, 
+  Loader2 
+} from "lucide-react";
 
 interface StoryItem {
   id: string;
@@ -19,59 +37,178 @@ interface DashboardClientProps {
   initialStories: StoryItem[];
 }
 
+// Structures matching the director's output
+interface WorldLore {
+  keyword: string;
+  content: string;
+}
+
+interface WorldLocation {
+  name: string;
+  description: string;
+  sensoryTags: string[];
+  coordinates: { x: number; y: number };
+  connections: Record<string, string>;
+}
+
+interface WorldNPC {
+  name: string;
+  publicBio: string;
+  privateAgenda: string;
+  dialogueStyle: string;
+  startingLocationName: string;
+}
+
+interface WorldDraft {
+  title: string;
+  description: string;
+  player: {
+    name: string;
+    age: number;
+    looks: string;
+    skills: string[];
+    status: string[];
+  };
+  locations: WorldLocation[];
+  characters: WorldNPC[];
+  items: { name: string; description: string; startingLocationName: string }[];
+  relationships: { sourceName: string; targetName: string; trust: number; hostility: number; suspicion: number }[];
+  initialDirectorGoals: string[];
+  lore: WorldLore[];
+}
+
+type StepType = "input" | "loading_draft" | "editor" | "character" | "loading_play";
+
 export default function DashboardClient({ initialStories }: DashboardClientProps) {
   const router = useRouter();
+  const [step, setStep] = useState<StepType>("input");
   const [prompt, setPrompt] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [loadingStep, setLoadingStep] = useState(0);
+  const [loadingProgressStep, setLoadingProgressStep] = useState(0);
+  const [draft, setDraft] = useState<WorldDraft | null>(null);
 
-  const steps = [
+  // Character creator fields
+  const [charName, setCharName] = useState("");
+  const [charAge, setCharAge] = useState(16);
+  const [charLooks, setCharLooks] = useState("");
+  const [charSkills, setCharSkills] = useState<string[]>([]);
+  const [newSkillText, setNewSkillText] = useState("");
+
+  // Room editor state
+  const [selectedLocIndex, setSelectedLocIndex] = useState<number | null>(null);
+  const [locName, setLocName] = useState("");
+  const [locDesc, setLocDesc] = useState("");
+  const [locSensory, setLocSensory] = useState("");
+
+  // NPC editor state
+  const [selectedNpcIndex, setSelectedNpcIndex] = useState<number | null>(null);
+  const [npcName, setNpcName] = useState("");
+  const [npcBio, setNpcBio] = useState("");
+  const [npcAgenda, setNpcAgenda] = useState("");
+  const [npcDialogue, setNpcDialogue] = useState("");
+
+  const loadingSteps = [
     "Contacting Gemini 3.5 Flash...",
     "Drafting historical lore & magic guidelines...",
     "Spawning independent NPC personalities...",
     "Calculating private character agendas & secrets...",
     "Mapping interconnected coordinates...",
-    "Compiling starting ASCII maps...",
-    "Saving world database entities...",
-    "Entering story chambers..."
+    "Compiling starting ASCII maps..."
   ];
 
-  const handleGenerate = async () => {
+  const handleGenerateDraft = async () => {
     if (!prompt.trim()) return;
 
-    setIsLoading(true);
-    setLoadingStep(0);
+    setStep("loading_draft");
+    setLoadingProgressStep(0);
 
-    // Dynamic fake stepper interval for better user experience
     const interval = setInterval(() => {
-      setLoadingStep((prev) => {
-        if (prev < steps.length - 1) return prev + 1;
+      setLoadingProgressStep((prev) => {
+        if (prev < loadingSteps.length - 1) return prev + 1;
         clearInterval(interval);
         return prev;
       });
-    }, 2800);
+    }, 2500);
 
     try {
       const res = await fetch("/api/world", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        body: JSON.stringify({ action: "draft", prompt }),
       });
 
       const data = await res.json();
       clearInterval(interval);
 
       if (data.error) {
-        alert("Error generating world: " + data.error);
-        setIsLoading(false);
+        alert("Error generating world draft: " + data.error);
+        setStep("input");
       } else {
-        router.push(`/story?id=${data.storyId}`);
+        const generated = data.draft as WorldDraft;
+        setDraft(generated);
+        // Prefill character creator
+        setCharName(generated.player.name);
+        setCharAge(generated.player.age);
+        setCharLooks(generated.player.looks);
+        setCharSkills(generated.player.skills);
+        setStep("editor");
       }
     } catch (err) {
       clearInterval(interval);
       console.error(err);
-      alert("Failed to initialize world. Check terminal console.");
-      setIsLoading(false);
+      alert("Failed to contact API. Check connection.");
+      setStep("input");
+    }
+  };
+
+  const handleSaveAndPlay = async () => {
+    if (!draft) return;
+
+    setStep("loading_play");
+
+    try {
+      // 1. Save World Template
+      const templateRes = await fetch("/api/world", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "save_template", draft }),
+      });
+
+      const templateData = await templateRes.json();
+      if (templateData.error) {
+        alert("Error saving world template: " + templateData.error);
+        setStep("character");
+        return;
+      }
+
+      const { templateStoryId } = templateData;
+
+      // 2. Instantiate Playthrough
+      const playRes = await fetch("/api/world", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "instantiate",
+          templateStoryId,
+          customPlayer: {
+            name: charName,
+            age: charAge,
+            looks: charLooks,
+            skills: charSkills,
+          },
+        }),
+      });
+
+      const playData = await playRes.json();
+      if (playData.error) {
+        alert("Error instantiating play: " + playData.error);
+        setStep("character");
+      } else {
+        router.push(`/story?id=${playData.storyId}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to deploy playthrough. Check console.");
+      setStep("character");
     }
   };
 
@@ -81,33 +218,466 @@ export default function DashboardClient({ initialStories }: DashboardClientProps
     );
   };
 
+  // Helper mutators for Draft state
+  const handleUpdateLore = (index: number, field: "keyword" | "content", val: string) => {
+    if (!draft) return;
+    const updatedLore = [...draft.lore];
+    updatedLore[index] = { ...updatedLore[index], [field]: val };
+    setDraft({ ...draft, lore: updatedLore });
+  };
+
+  const handleAddLore = () => {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      lore: [...draft.lore, { keyword: "New Lore Card", content: "Lore details here." }],
+    });
+  };
+
+  const handleRemoveLore = (idx: number) => {
+    if (!draft) return;
+    setDraft({
+      ...draft,
+      lore: draft.lore.filter((_, i) => i !== idx),
+    });
+  };
+
+  const openRoomEditor = (index: number) => {
+    if (!draft) return;
+    const room = draft.locations[index];
+    setSelectedLocIndex(index);
+    setLocName(room.name);
+    setLocDesc(room.description);
+    setLocSensory(room.sensoryTags.join(", "));
+  };
+
+  const saveRoomDetails = () => {
+    if (!draft || selectedLocIndex === null) return;
+    const updatedLocs = [...draft.locations];
+    updatedLocs[selectedLocIndex] = {
+      ...updatedLocs[selectedLocIndex],
+      name: locName,
+      description: locDesc,
+      sensoryTags: locSensory.split(",").map((s) => s.trim()).filter(Boolean),
+    };
+    setDraft({ ...draft, locations: updatedLocs });
+    setSelectedLocIndex(null);
+  };
+
+  const openNpcEditor = (index: number) => {
+    if (!draft) return;
+    const npc = draft.characters[index];
+    setSelectedNpcIndex(index);
+    setNpcName(npc.name);
+    setNpcBio(npc.publicBio);
+    setNpcAgenda(npc.privateAgenda);
+    setNpcDialogue(npc.dialogueStyle);
+  };
+
+  const saveNpcDetails = () => {
+    if (!draft || selectedNpcIndex === null) return;
+    const updatedNPCs = [...draft.characters];
+    updatedNPCs[selectedNpcIndex] = {
+      ...updatedNPCs[selectedNpcIndex],
+      name: npcName,
+      publicBio: npcBio,
+      privateAgenda: npcAgenda,
+      dialogueStyle: npcDialogue,
+    };
+    setDraft({ ...draft, characters: updatedNPCs });
+    setSelectedNpcIndex(null);
+  };
+
+  const handleAddSkill = () => {
+    if (!newSkillText.trim() || charSkills.includes(newSkillText.trim())) return;
+    setCharSkills([...charSkills, newSkillText.trim()]);
+    setNewSkillText("");
+  };
+
+  const handleRemoveSkill = (skill: string) => {
+    setCharSkills(charSkills.filter((s) => s !== skill));
+  };
+
+  // ----------------------------------------------------
+  // STEP: Loading Screens
+  // ----------------------------------------------------
+  if (step === "loading_draft" || step === "loading_play") {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px] w-full max-w-xl mx-auto space-y-6 bg-slate-900/40 p-12 rounded-2xl border border-slate-800 backdrop-blur-md relative overflow-hidden">
+        <Loader2 className="w-12 h-12 text-violet-400 animate-spin" />
+        <div className="space-y-2 text-center z-10">
+          <h3 className="text-xl font-bold text-slate-100">
+            {step === "loading_draft" ? "Drafting World Bible" : "Instantiating Chronicles"}
+          </h3>
+          <p className="text-sm text-slate-400 animate-pulse">
+            {step === "loading_draft" ? loadingSteps[loadingProgressStep] : "Preparing simulation parameters..."}
+          </p>
+        </div>
+        <div className="w-48 bg-slate-800 h-1.5 rounded-full overflow-hidden z-10">
+          <div 
+            className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full transition-all duration-700"
+            style={{ width: `${step === "loading_draft" ? ((loadingProgressStep + 1) / loadingSteps.length) * 100 : 80}%` }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ----------------------------------------------------
+  // STEP: World Bible Editor
+  // ----------------------------------------------------
+  if (step === "editor" && draft) {
+    return (
+      <Card className="w-full bg-slate-900/60 border-slate-800 backdrop-blur-md shadow-2xl flex flex-col max-h-[85vh]">
+        <CardHeader className="border-b border-slate-800 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-bold flex items-center gap-2 text-slate-100">
+                <Scroll className="w-5 h-5 text-violet-400" />
+                World Bible Editor
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Customize generated lore, locations, and NPC cast members before starting.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-violet-500/30 text-violet-400">Step 2 of 3</Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 overflow-hidden p-6">
+          <Tabs defaultValue="lore" className="h-full flex flex-col">
+            <TabsList className="bg-slate-950 border border-slate-800 p-1 w-full justify-start shrink-0">
+              <TabsTrigger value="lore" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                📖 Lore & Factions
+              </TabsTrigger>
+              <TabsTrigger value="locations" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                🗺️ Locations ({draft.locations.length})
+              </TabsTrigger>
+              <TabsTrigger value="cast" className="data-[state=active]:bg-violet-600 data-[state=active]:text-white">
+                👥 NPC Cast ({draft.characters.length})
+              </TabsTrigger>
+            </TabsList>
+
+            {/* TAB: Lore & Factions */}
+            <TabsContent value="lore" className="flex-1 overflow-hidden pt-4 focus-visible:ring-0">
+              <ScrollArea className="h-[45vh] pr-4">
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">World Title</label>
+                    <Input 
+                      value={draft.title} 
+                      onChange={(e) => setDraft({ ...draft, title: e.target.value })}
+                      className="bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-violet-500"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-semibold text-slate-300">Setting & Faction Summaries</label>
+                    <Textarea 
+                      value={draft.description} 
+                      onChange={(e) => setDraft({ ...draft, description: e.target.value })}
+                      className="min-h-[100px] bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-violet-500"
+                    />
+                  </div>
+
+                  <div className="space-y-3 pt-2">
+                    <div className="flex justify-between items-center">
+                      <h4 className="text-sm font-bold text-slate-300">Lore Knowledge Cards (Keyword-Triggered)</h4>
+                      <Button variant="outline" size="sm" onClick={handleAddLore} className="border-slate-800 hover:bg-slate-850 hover:text-white">
+                        <Plus className="w-3.5 h-3.5 mr-1" /> Add Card
+                      </Button>
+                    </div>
+
+                    {draft.lore.map((card, idx) => (
+                      <div key={idx} className="p-4 rounded-lg bg-slate-950 border border-slate-850 space-y-3 relative group">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          onClick={() => handleRemoveLore(idx)}
+                          className="absolute right-2 top-2 text-slate-500 hover:text-red-400 hover:bg-slate-900"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                        <div className="w-[85%]">
+                          <Input 
+                            value={card.keyword} 
+                            placeholder="Keyword Trigger (e.g. White Death)"
+                            onChange={(e) => handleUpdateLore(idx, "keyword", e.target.value)}
+                            className="bg-slate-900 border-slate-800 text-violet-400 font-semibold h-8"
+                          />
+                        </div>
+                        <Textarea 
+                          value={card.content} 
+                          placeholder="Lore card description that the AI director pulls on query..."
+                          onChange={(e) => handleUpdateLore(idx, "content", e.target.value)}
+                          className="bg-slate-900 border-slate-800 text-slate-300 text-xs min-h-[60px]"
+                        />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            {/* TAB: Locations */}
+            <TabsContent value="locations" className="flex-1 overflow-hidden pt-4 focus-visible:ring-0">
+              <ScrollArea className="h-[45vh] pr-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {draft.locations.map((loc, idx) => (
+                    <div key={idx} className="p-4 rounded-lg bg-slate-950/80 border border-slate-850 hover:border-violet-500/30 transition-all flex items-start justify-between">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <MapPin className="w-4 h-4 text-violet-400" />
+                          <h4 className="font-semibold text-slate-200">{loc.name}</h4>
+                          <span className="text-[10px] text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
+                            Coords: ({loc.coordinates.x}, {loc.coordinates.y})
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 line-clamp-2 pr-6">{loc.description}</p>
+                        <div className="flex gap-1.5 flex-wrap">
+                          {loc.sensoryTags.map((tag, sIdx) => (
+                            <span key={sIdx} className="text-[10px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-855 text-slate-500">
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger 
+                          onClick={() => openRoomEditor(idx)} 
+                          className="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-slate-805 bg-transparent text-slate-100 hover:bg-slate-800 h-8 px-3 transition-colors cursor-pointer shrink-0"
+                        >
+                          <Edit3 className="w-3 h-3 mr-1 inline" /> Edit
+                        </DialogTrigger>
+                        <DialogContent className="bg-slate-950 border-slate-850 text-slate-100">
+                          <DialogHeader>
+                            <DialogTitle>Edit Room Details</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Room Name</label>
+                              <Input value={locName} onChange={(e) => setLocName(e.target.value)} className="bg-slate-900 border-slate-800" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Atmospheric Description</label>
+                              <Textarea value={locDesc} onChange={(e) => setLocDesc(e.target.value)} className="bg-slate-900 border-slate-850 min-h-[100px]" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Sensory Tags (comma separated)</label>
+                              <Input value={locSensory} onChange={(e) => setLocSensory(e.target.value)} className="bg-slate-900 border-slate-800" />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button onClick={saveRoomDetails} className="bg-violet-600 hover:bg-violet-500">
+                              Save Changes
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            {/* TAB: Cast Members */}
+            <TabsContent value="cast" className="flex-1 overflow-hidden pt-4 focus-visible:ring-0">
+              <ScrollArea className="h-[45vh] pr-4">
+                <div className="grid grid-cols-1 gap-3">
+                  {draft.characters.map((npc, idx) => (
+                    <div key={idx} className="p-4 rounded-lg bg-slate-950/80 border border-slate-850 hover:border-violet-500/30 transition-all flex items-start justify-between">
+                      <div className="space-y-2 pr-6">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-fuchsia-400" />
+                          <h4 className="font-semibold text-slate-200">{npc.name}</h4>
+                          <span className="text-[10px] text-slate-500 bg-slate-900 px-2 py-0.5 rounded">
+                            Starts: {npc.startingLocationName}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-400 line-clamp-2">{npc.publicBio}</p>
+                        <div className="text-xs p-2 rounded bg-red-950/20 border border-red-900/30 text-red-300">
+                          <span className="font-bold text-[10px] uppercase text-red-400 block mb-0.5">Private Agenda & Secrets:</span>
+                          {npc.privateAgenda}
+                        </div>
+                      </div>
+                      <Dialog>
+                        <DialogTrigger 
+                          onClick={() => openNpcEditor(idx)} 
+                          className="inline-flex items-center justify-center rounded-md text-xs font-semibold border border-slate-805 bg-transparent text-slate-100 hover:bg-slate-800 h-8 px-3 transition-colors cursor-pointer shrink-0"
+                        >
+                          <Edit3 className="w-3 h-3 mr-1 inline" /> Edit
+                        </DialogTrigger>
+                        <DialogContent className="bg-slate-950 border-slate-850 text-slate-100 max-w-lg">
+                          <DialogHeader>
+                            <DialogTitle>Edit NPC Profile</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">NPC Name</label>
+                              <Input value={npcName} onChange={(e) => setNpcName(e.target.value)} className="bg-slate-900 border-slate-800" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Public Bio (Sensory details for chat)</label>
+                              <Textarea value={npcBio} onChange={(e) => setNpcBio(e.target.value)} className="bg-slate-900 border-slate-850 min-h-[60px]" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Private Agenda & Hidden Motives (For AI deliberations only)</label>
+                              <Textarea value={npcAgenda} onChange={(e) => setNpcAgenda(e.target.value)} className="bg-slate-900 border-slate-855 min-h-[60px]" />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-xs text-slate-400">Dialogue & Speech Style (E.g. grumpy wizard, quick speech)</label>
+                              <Input value={npcDialogue} onChange={(e) => setNpcDialogue(e.target.value)} className="bg-slate-900 border-slate-850" />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button onClick={saveNpcDetails} className="bg-violet-600 hover:bg-violet-500">
+                              Save Changes
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+
+        <CardFooter className="border-t border-slate-800 shrink-0 p-6 flex justify-between bg-slate-950/40">
+          <Button variant="ghost" onClick={() => setStep("input")} className="text-slate-400 hover:text-slate-100">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+          <Button onClick={() => setStep("character")} className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-slate-55 shadow-lg">
+            Next: Character Creator <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // ----------------------------------------------------
+  // STEP: Protagonist Character Creator
+  // ----------------------------------------------------
+  if (step === "character" && draft) {
+    return (
+      <Card className="w-full max-w-xl mx-auto bg-slate-900/60 border-slate-800 backdrop-blur-md shadow-2xl flex flex-col max-h-[85vh]">
+        <CardHeader className="border-b border-slate-800 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="space-y-1">
+              <CardTitle className="text-2xl font-bold flex items-center gap-2 text-slate-100">
+                <User className="w-5 h-5 text-fuchsia-400" />
+                Character Creator
+              </CardTitle>
+              <CardDescription className="text-slate-400">
+                Create and tailor the protagonist you will play as.
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className="border-fuchsia-500/30 text-fuchsia-400">Step 3 of 3</Badge>
+          </div>
+        </CardHeader>
+
+        <CardContent className="flex-1 overflow-hidden p-6">
+          <ScrollArea className="h-[45vh] pr-4">
+            <div className="space-y-5">
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300">Character Name</label>
+                <Input 
+                  value={charName} 
+                  onChange={(e) => setCharName(e.target.value)}
+                  placeholder="E.g., Aiden Rosenthaal"
+                  className="bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-violet-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300">Age</label>
+                <Input 
+                  type="number"
+                  value={charAge} 
+                  onChange={(e) => setCharAge(Number(e.target.value))}
+                  className="bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-violet-500"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-slate-300">Appearance & Traits</label>
+                <Textarea 
+                  value={charLooks} 
+                  onChange={(e) => setCharLooks(e.target.value)}
+                  placeholder="Describe your appearance, height, hair, clothing, or physical frailties..."
+                  className="bg-slate-950 border-slate-800 text-slate-100 focus-visible:ring-violet-500 min-h-[80px]"
+                />
+              </div>
+
+              <div className="space-y-3">
+                <label className="text-sm font-semibold text-slate-300">Character Skills & Attributes</label>
+                
+                <div className="flex gap-2">
+                  <Input 
+                    value={newSkillText}
+                    onChange={(e) => setNewSkillText(e.target.value)}
+                    placeholder="E.g., Alchemy, Swordplay, Stealth"
+                    className="bg-slate-950 border-slate-800"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddSkill();
+                      }
+                    }}
+                  />
+                  <Button onClick={handleAddSkill} variant="outline" className="border-slate-800 shrink-0">
+                    Add
+                  </Button>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {charSkills.length === 0 ? (
+                    <span className="text-xs text-slate-500 italic">No skills added yet. Add skills to give GM context.</span>
+                  ) : (
+                    charSkills.map((skill) => (
+                      <Badge 
+                        key={skill} 
+                        variant="secondary" 
+                        className="bg-violet-950/40 border border-violet-850 hover:border-red-500/50 hover:bg-red-950/20 text-slate-200 transition-colors pr-1 cursor-pointer"
+                        onClick={() => handleRemoveSkill(skill)}
+                      >
+                        {skill}
+                        <Trash2 className="w-3 h-3 ml-1 text-slate-500 hover:text-red-400 inline" />
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+          </ScrollArea>
+        </CardContent>
+
+        <CardFooter className="border-t border-slate-800 shrink-0 p-6 flex justify-between bg-slate-950/40">
+          <Button variant="ghost" onClick={() => setStep("editor")} className="text-slate-400 hover:text-slate-100">
+            <ArrowLeft className="w-4 h-4 mr-2" /> Back
+          </Button>
+          <Button onClick={handleSaveAndPlay} className="bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-slate-55 shadow-lg px-6 font-bold">
+            Begin Chronicles <ArrowRight className="w-4 h-4 ml-2" />
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
+
+  // ----------------------------------------------------
+  // STEP: Standard Dashboard (Scenario Input)
+  // ----------------------------------------------------
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
       
       {/* Creation Pane */}
       <Card className="bg-slate-900/60 border-slate-800 backdrop-blur-md shadow-2xl relative overflow-hidden">
-        {isLoading && (
-          <div className="absolute inset-0 bg-slate-950/90 flex flex-col items-center justify-center p-6 space-y-6 z-50 animate-in fade-in zoom-in duration-300">
-            <Loader2 className="w-12 h-12 text-violet-400 animate-spin" />
-            <div className="space-y-2 text-center">
-              <h3 className="text-xl font-semibold text-slate-100">Creating World</h3>
-              <p className="text-sm text-slate-400 animate-pulse">{steps[loadingStep]}</p>
-            </div>
-            <div className="w-48 bg-slate-800 h-1 rounded-full overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-violet-500 to-fuchsia-500 h-full transition-all duration-1000"
-                style={{ width: `${((loadingStep + 1) / steps.length) * 100}%` }}
-              />
-            </div>
-          </div>
-        )}
-
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+          <CardTitle className="text-2xl font-bold flex items-center gap-2 text-slate-100">
             <Sparkles className="w-5 h-5 text-violet-400" />
             Draft a New Scenario
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-slate-400">
             Type a few sentences describing who you are, the setting, and initial characters. The GM will populate the rest.
           </CardDescription>
         </CardHeader>
@@ -131,11 +701,11 @@ export default function DashboardClient({ initialStories }: DashboardClientProps
         </CardContent>
         <CardFooter>
           <Button
-            onClick={handleGenerate}
+            onClick={handleGenerateDraft}
             disabled={!prompt.trim()}
-            className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-slate-55 shadow-lg"
+            className="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-slate-55 shadow-lg font-bold"
           >
-            Create World & Begin
+            Draft World Bible & Next <ArrowRight className="w-4 h-4 ml-2" />
           </Button>
         </CardFooter>
       </Card>
@@ -143,11 +713,11 @@ export default function DashboardClient({ initialStories }: DashboardClientProps
       {/* History Pane */}
       <Card className="bg-slate-900/60 border-slate-800 backdrop-blur-md shadow-2xl h-[440px] flex flex-col">
         <CardHeader>
-          <CardTitle className="text-2xl font-bold flex items-center gap-2">
+          <CardTitle className="text-2xl font-bold flex items-center gap-2 text-slate-100">
             <BookOpen className="w-5 h-5 text-fuchsia-400" />
             Resume Chronicles
           </CardTitle>
-          <CardDescription>Select a previously created story world to return to your scene.</CardDescription>
+          <CardDescription className="text-slate-400">Select an active story world to return to your scene.</CardDescription>
         </CardHeader>
         <CardContent className="flex-1 overflow-hidden">
           <ScrollArea className="h-full pr-4">

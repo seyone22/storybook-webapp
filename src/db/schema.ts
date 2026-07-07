@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, uuid, text, integer, boolean, timestamp, jsonb, foreignKey } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 
 // 1. Stories Table
@@ -7,8 +7,15 @@ export const stories = pgTable("stories", {
   title: text("title").notNull(),
   description: text("description"),
   lore: jsonb("lore").$type<{ keyword: string; content: string }[]>().default([]).notNull(), // lore book cards
+  isTemplate: boolean("is_template").default(false).notNull(),
+  parentTemplateId: uuid("parent_template_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (table) => [
+  foreignKey({
+    columns: [table.parentTemplateId],
+    foreignColumns: [table.id],
+  }).onDelete("cascade")
+]);
 
 // relations for Stories
 export const storiesRelations = relations(stories, ({ many }) => ({

@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { stories } from "@/db/schema";
-import { desc } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import DashboardClient from "@/components/DashboardClient";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +17,7 @@ export default async function DashboardPage() {
         createdAt: stories.createdAt,
       })
       .from(stories)
+      .where(eq(stories.isTemplate, false))
       .orderBy(desc(stories.createdAt));
   } catch (err) {
     console.error("Failed to query stories:", err);
