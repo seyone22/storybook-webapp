@@ -137,10 +137,10 @@ function StoryActiveContainer() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+    <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-50 flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
       
       {/* 1. Header Area */}
-      <header className="flex justify-between items-center border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-4 sm:px-6 py-3 shrink-0">
+      <header className="flex justify-between items-center border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-4 sm:px-6 py-2.5 shrink-0">
         <div className="flex items-center gap-3">
           <Button 
             size="icon" 
@@ -197,16 +197,26 @@ function StoryActiveContainer() {
         </div>
       </header>
 
-      {/* 2. Room Description Panel (Sensory description) */}
-      <div className="bg-slate-950/20 px-4 py-3 border-b border-slate-900 shrink-0 text-center">
-        <p className="text-xs sm:text-sm text-slate-300 max-w-3xl mx-auto italic font-serif">
-          "{currentLocationDesc}"
-        </p>
+      {/* 2. Room Description Panel (Sensory description - compact subheader row) */}
+      <div className="bg-slate-950/40 px-5 py-2 border-b border-slate-900 shrink-0 flex items-center justify-between gap-4">
+        <div className="flex-1 text-left">
+          <span className="text-[10px] text-violet-450 font-bold uppercase tracking-wider block leading-none mb-0.5">Current Room Details</span>
+          <p className="text-xs text-slate-350 line-clamp-1 leading-relaxed">
+            {currentLocationDesc}
+          </p>
+        </div>
+        <div className="flex gap-1.5 shrink-0">
+          {sensoryTags.map((tag, idx) => (
+            <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-850 text-slate-500 font-mono">
+              {tag}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* 3. Main Workspace Layout */}
       {/* Desktop Layout */}
-      <div className="flex-1 hidden md:grid grid-cols-12 gap-4 p-4 overflow-hidden h-[calc(100vh-130px)]">
+      <div className="flex-1 min-h-0 hidden md:grid grid-cols-12 gap-4 p-4 overflow-hidden">
         {/* Left Side: Map & Inventory */}
         <div className="col-span-3 h-full overflow-hidden flex flex-col">
           <AsciiMap asciiMap={asciiMap} onMove={handleMove} />
@@ -289,7 +299,7 @@ function StoryActiveContainer() {
       </div>
 
       {/* Mobile Layout (Tabbed Viewport) */}
-      <div className="flex-1 md:hidden flex flex-col overflow-hidden h-[calc(100vh-130px)]">
+      <div className="flex-1 min-h-0 md:hidden flex flex-col overflow-hidden">
         <Tabs defaultValue="story" className="flex-1 flex flex-col overflow-hidden">
           
           {/* Scrollable contents panel */}
