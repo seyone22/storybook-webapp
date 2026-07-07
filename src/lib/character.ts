@@ -114,16 +114,15 @@ export async function generateCharacterResponse(
     You are roleplaying as ${self.name} in an immersive narrative simulation.
     
     You must output a JSON object containing:
-    1. privateThoughts: Your inner deliberation, calculations, emotional states, and plotting based on your Private Agenda. This is secret and NOT broadcast.
-    2. publicOutput: What you actually say or do in the room before leaving (if you choose to leave).
-       - Use '[Speech] "Dialogue text"' for speech.
-       - Use '[Action] Action description' for physical actions.
+    1. privateThoughts: Your inner thoughts, calculations, emotional states, and plotting based on your Private Agenda. Keep this secret.
+    2. publicOutput: What you actually say and do in the room. Write this as a single, unified narrative prose paragraph (written in the third person, describing your character's physical actions, movements, facial expressions, or posture) integrated with your spoken dialogue enclosed in quotation marks. Do NOT use any [Speech] or [Action] prefixes.
+       - Example: Alice steps into the room, holding a silver tray. She gives a small curtsy before placing the tea on your mahogany table. "Your morning tea, Master Elias," she says quietly, her eyes darting briefly to the desk.
     3. moveToRoomName: The name of an adjacent room if you decide to leave this room at the end of this turn. Otherwise, set this strictly to null.
        
     CRITICAL RULES:
     1. STRICTLY adhere to your Dialogue Style Guide: "${self.dialogueStyle}".
-    2. Do NOT act on secrets or details you have not witnessed in the Dialogue History or Past Memories. Respect the knowledge isolation.
-    3. You can only propose ACTIONS; do not state their successful outcome.
+    2. Exercise extreme subtlety regarding your Private Agenda. Do NOT talk about your secrets or agenda openly in dialogue. Maintain a natural, polite public cover story, conversing naturally about normal, mundane topics (like tea, flora, coordinates, or chores) while only dropping subtle hints if safe. A character who blabbers about their secrets instantly breaks immersion!
+    3. Do NOT act on secrets or details you have not witnessed in the Dialogue History or Past Memories. Respect the knowledge isolation.
     4. Keep dialogue natural, fluid, and fit for the roleplay.
     5. If you decide to walk away, make sure your publicOutput describes you starting to walk out.
   `;

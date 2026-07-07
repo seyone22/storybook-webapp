@@ -128,15 +128,32 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
                   <div className="text-xs font-mono text-slate-400">{msg.text}</div>
                 ) : (
                   <div className="space-y-1">
-                    <div className="text-xs font-bold text-violet-400">{msg.speaker}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400">{msg.speaker}</div>
                     <div className="text-sm leading-relaxed whitespace-pre-wrap">
-                      {msg.text.startsWith("[Speech]") ? (
-                        <span className="italic text-slate-100">{msg.text.replace("[Speech]", "").trim()}</span>
-                      ) : msg.text.startsWith("[Action]") ? (
-                        <span className="text-slate-400 font-mono">{msg.text.replace("[Action]", "").trim()}</span>
-                      ) : (
-                        msg.text
-                      )}
+                      {(() => {
+                        const cleanText = msg.text.replace(/\[Speech\]|\[Action\]/g, "").trim();
+                        // Split by double quotes, keeping the quotes
+                        const parts = cleanText.split(/(".*?")/g);
+                        return (
+                          <>
+                            {parts.map((part, idx) => {
+                              const isQuote = part.startsWith('"') && part.endsWith('"');
+                              if (isQuote) {
+                                return (
+                                  <span key={idx} className="text-slate-100 font-medium">
+                                    {part}
+                                  </span>
+                                );
+                              }
+                              return (
+                                <span key={idx} className="text-slate-400">
+                                  {part}
+                                </span>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
