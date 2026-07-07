@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { characters, locations, memories, stories, relationships, items } from "@/db/schema";
-import { eq, and, desc, ne } from "drizzle-orm";
+import { eq, and, desc, ne, inArray } from "drizzle-orm";
 import { arbitrateAction, generateNewLocation, injectEvent } from "./director";
 import { generateCharacterResponse } from "./character";
 import { retrieveRelevantLore, retrieveRelevantMemories, consolidateScene } from "./memory";
@@ -23,10 +23,6 @@ interface TickOutput {
 
 /**
  * Executes a single logical simulation tick.
- * Process:
- * 1. Process player speech/action
- * 2. Select next NPC to act/respond
- * 3. Run background updates for off-screen NPCs
  */
 export async function executeTick(input: TickInput): Promise<TickOutput> {
   const { storyId, playerInput, actionType } = input;
@@ -103,8 +99,7 @@ export async function executeTick(input: TickInput): Promise<TickOutput> {
 
   let npcResponseText = "";
   if (NPCsInRoom.length > 0) {
-    // Select an NPC to respond (simplistic scheduler: random or priority)
-    // In a real game we can cycle them, let's pick one randomly for this tick
+    // Select an NPC to respond (cycle or random)
     const activeNpc = NPCsInRoom[Math.floor(Math.random() * NPCsInRoom.length)];
 
     // Fetch memory & lore triggers
@@ -124,22 +119,23 @@ export async function executeTick(input: TickInput): Promise<TickOutput> {
 
     npcResponseText = `${activeNpc.name}: ${npcRes.publicOutput}`;
 
-    // If NPC proposed an action, arbitrate it!
+    // If NPC proposed a raw action, arbitrate it
     if (npcRes.publicOutput.startsWith("[Action]")) {
       const npcActionStr = npcRes.publicOutput.replace("[Action]", "").trim();
       const outcome = await arbitrateAction(storyId, activeNpc.name, false, npcActionStr, playerLocId);
       npcResponseText = outcome;
     }
   } else {
-    // If no NPCs, GM might inject an environment event
-    // 20% chance or if silent
-    if (Math.random() < 0.3) {
+    // If no NPCs, GM might inject an environment event (50% chance when alone)
+    if (Math.random() < 0.5) {
       npcResponseText = await injectEvent(storyId, playerLocId);
     }
   }
 
-  // C. Abstracted Background Sim Ticks (10% chance per tick)
-  if (Math.random() < 0.1) {
+  // C. Abstracted Background Sim Ticks
+  // 100% chance if waiting, 50% chance otherwise to make off-screen characters wander and explore
+  const backgroundSimChance = actionType === "wait" ? 1.0 : 0.5;
+  if (Math.random() < backgroundSimChance) {
     await simulateBackgroundCharacters(storyId, playerLocId);
   }
 
@@ -161,7 +157,7 @@ export async function executeTick(input: TickInput): Promise<TickOutput> {
     }),
     currentLocationName: loc.name,
     currentLocationDesc: loc.description,
-    asciiMap: "", // will compile in UI/routes
+    asciiMap: "", // compiled in UI/routes
   };
 }
 
@@ -207,7 +203,7 @@ export async function movePlayer(storyId: string, direction: string): Promise<vo
 }
 
 /**
- * Off-screen characters get simulated at a high level
+ * Off-screen characters get simulated at a high level and can move rooms
  */
 async function simulateBackgroundCharacters(storyId: string, playerLocId: string) {
   // Fetch all characters NOT in the player's room
@@ -226,33 +222,91 @@ async function simulateBackgroundCharacters(storyId: string, playerLocId: string
   const ai = new GoogleGenAI({ apiKey });
 
   for (const char of offScreenChars) {
-    const loc = await db.query.locations.findFirst({
-      where: eq(locations.id, char.locationId!),
+    if (!char.locationId) continue;
+
+    const currentLoc = await db.query.locations.findFirst({
+      where: eq(locations.id, char.locationId),
     });
+    if (!currentLoc) continue;
+
+    // Fetch adjacent locations
+    const conns = (currentLoc.connections || {}) as Record<string, string>;
+    const adjacentIds = Object.values(conns);
+    
+    let adjacentLocs: { id: string; name: string }[] = [];
+    if (adjacentIds.length > 0) {
+      adjacentLocs = await db.query.locations.findMany({
+        where: inArray(locations.id, adjacentIds),
+        columns: {
+          id: true,
+          name: true,
+        },
+      });
+    }
+    const adjacentRoomNames = adjacentLocs.map((l) => l.name);
 
     const systemInstruction = `
       You are the Background Story Simulator.
-      Simulate what ${char.name} does off-screen in location: ${loc?.name || "unknown"}.
-      Based on their agenda: "${char.privateAgenda}", what is their immediate off-screen action or status update?
-      Keep it to 1 sentence max. Format: "${char.name} ..."
+      Simulate what NPC ${char.name} does off-screen in location: ${currentLoc.name} (${currentLoc.description}).
+      Adjacent connected rooms they can walk to: ${adjacentRoomNames.join(", ") || "None"}.
+      
+      Based on their secret agenda: "${char.privateAgenda}", decide if they continue their current action, or walk to an adjacent room.
+      You must output a JSON object containing:
+      1. thought: 1-sentence inner thoughts.
+      2. action: 1-sentence description of what they do. Format starting with their name, e.g. "${char.name} searches the desk..."
+      3. moveToRoomName: The name of an adjacent room if they choose to walk there. Otherwise set to null.
     `;
 
     try {
       const response = await ai.models.generateContent({
         model: MODEL_NAME,
         contents: "Determine off-screen action.",
-        config: { systemInstruction },
+        config: { 
+          systemInstruction,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              thought: { type: "STRING" },
+              action: { type: "STRING" },
+              moveToRoomName: { type: "STRING", nullable: true },
+            },
+            required: ["thought", "action", "moveToRoomName"],
+          },
+        },
       });
 
-      const updateText = response.text!.trim();
+      const parsed = JSON.parse(response.text!) as { thought: string; action: string; moveToRoomName: string | null };
 
-      // Write directly to character's memory diary (so they remember doing it!)
+      // Write directly to character's diary
       await db.insert(memories).values({
         storyId,
         characterId: char.id,
-        content: `[Off-screen Action] ${updateText}`,
+        content: `[Off-screen Thought] ${parsed.thought}\n[Off-screen Action] ${parsed.action}`,
         type: "diary",
       });
+
+      // Handle room transition
+      if (parsed.moveToRoomName && adjacentRoomNames.includes(parsed.moveToRoomName)) {
+        const targetRoom = adjacentLocs.find((l) => l.name === parsed.moveToRoomName);
+        if (targetRoom) {
+          // Update DB location
+          await db
+            .update(characters)
+            .set({ locationId: targetRoom.id })
+            .where(eq(characters.id, char.id));
+
+          // If the target room is the player's room, announce their arrival!
+          if (targetRoom.id === playerLocId) {
+            await db.insert(memories).values({
+              storyId,
+              characterId: null,
+              content: `[Event] ${char.name} enters the room from the ${currentLoc.name}.`,
+              type: "event",
+            });
+          }
+        }
+      }
     } catch (err) {
       console.error(`Failed background sim for ${char.name}:`, err);
     }

@@ -753,7 +753,7 @@ export async function injectEvent(storyId: string, currentLocationId: string): P
 
   const prompt = `
     Location: ${locationRow?.name}
-    Active Characters: ${activeChars.map((c) => c.name).join(", ")}
+    Active Characters: ${activeChars.map((c) => `${c.name} (${c.isPlayer ? "PLAYER/PROTAGONIST - refer to as You/Your" : "NPC"})`).join(", ")}
     Inject a prompt event.
   `;
 

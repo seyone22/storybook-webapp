@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { db } from "@/db";
 import { characters, relationships, locations, memories } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq, and, inArray } from "drizzle-orm";
 
 const MODEL_NAME = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
@@ -16,6 +16,7 @@ function getGenAI() {
 interface CharacterResponse {
   privateThoughts: string;
   publicOutput: string; // E.g., "[Speech] 'Hello'" or "[Action] I shrug nervously."
+  moveToRoomName?: string | null;
 }
 
 /**
@@ -41,6 +42,21 @@ export async function generateCharacterResponse(
   const locationRow = await db.query.locations.findFirst({
     where: eq(locations.id, currentLocationId),
   });
+
+  // Fetch adjacent rooms for movement options
+  const conns = (locationRow?.connections || {}) as Record<string, string>;
+  const adjacentIds = Object.values(conns);
+  let adjacentLocs: { id: string; name: string }[] = [];
+  if (adjacentIds.length > 0) {
+    adjacentLocs = await db.query.locations.findMany({
+      where: inArray(locations.id, adjacentIds),
+      columns: {
+        id: true,
+        name: true,
+      },
+    });
+  }
+  const adjacentRoomNames = adjacentLocs.map((l) => l.name);
 
   // 3. Fetch relationships this character has with everyone else in the room
   const rels = await db.query.relationships.findMany({
@@ -77,6 +93,7 @@ export async function generateCharacterResponse(
     Location: ${locationRow?.name}
     Description: ${locationRow?.description}
     Sensory Details: ${locationRow?.sensoryTags.join(", ")}
+    Adjacent connected rooms you can walk to: ${adjacentRoomNames.join(", ") || "None"}
 
     --- RELATIONSHIPS ---
     ${relSummary.join("\n") || "No established relationships yet."}
@@ -90,7 +107,7 @@ export async function generateCharacterResponse(
     --- RECENT DIALOGUE HISTORY (WHAT YOU HAVE WITNESSED) ---
     ${formattedDialogue || "No dialogue has occurred in this scene yet."}
 
-    Generate your response as a JSON object separating your private thoughts from your public action/speech.
+    Generate your response as a JSON object. If you decide to walk out of the room towards one of the adjacent connected rooms, specify the room's name in "moveToRoomName". Otherwise set it to null.
   `;
 
   const systemInstruction = `
@@ -98,15 +115,17 @@ export async function generateCharacterResponse(
     
     You must output a JSON object containing:
     1. privateThoughts: Your inner deliberation, calculations, emotional states, and plotting based on your Private Agenda. This is secret and NOT broadcast.
-    2. publicOutput: What you actually say or do in the room.
+    2. publicOutput: What you actually say or do in the room before leaving (if you choose to leave).
        - Use '[Speech] "Dialogue text"' for speech.
        - Use '[Action] Action description' for physical actions.
+    3. moveToRoomName: The name of an adjacent room if you decide to leave this room at the end of this turn. Otherwise, set this strictly to null.
        
     CRITICAL RULES:
     1. STRICTLY adhere to your Dialogue Style Guide: "${self.dialogueStyle}".
     2. Do NOT act on secrets or details you have not witnessed in the Dialogue History or Past Memories. Respect the knowledge isolation.
-    3. You can only propose ACTIONS; do not state their successful outcome (e.g. write "[Action] I attempt to push Kael" not "[Action] I push Kael to the floor").
+    3. You can only propose ACTIONS; do not state their successful outcome.
     4. Keep dialogue natural, fluid, and fit for the roleplay.
+    5. If you decide to walk away, make sure your publicOutput describes you starting to walk out.
   `;
 
   const response = await ai.models.generateContent({
@@ -120,8 +139,9 @@ export async function generateCharacterResponse(
         properties: {
           privateThoughts: { type: "STRING" },
           publicOutput: { type: "STRING" },
+          moveToRoomName: { type: "STRING", nullable: true, description: "Name of adjacent room to move to, or null" },
         },
-        required: ["privateThoughts", "publicOutput"],
+        required: ["privateThoughts", "publicOutput", "moveToRoomName"],
       },
     },
   });
@@ -143,6 +163,26 @@ export async function generateCharacterResponse(
     content: `${self.name}: ${parsed.publicOutput}`,
     type: "event",
   });
+
+  // Execute movement if they chose to leave
+  if (parsed.moveToRoomName && adjacentRoomNames.includes(parsed.moveToRoomName)) {
+    const targetRoom = adjacentLocs.find((l) => l.name === parsed.moveToRoomName);
+    if (targetRoom) {
+      // Update location in DB
+      await db
+        .update(characters)
+        .set({ locationId: targetRoom.id })
+        .where(eq(characters.id, characterId));
+
+      // Log the movement as an event
+      await db.insert(memories).values({
+        storyId,
+        characterId: null,
+        content: `[Event] ${self.name} leaves the room, heading toward the ${targetRoom.name}.`,
+        type: "event",
+      });
+    }
+  }
 
   return parsed;
 }
