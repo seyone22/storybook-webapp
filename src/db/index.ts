@@ -7,10 +7,13 @@ const globalForDb = globalThis as unknown as {
   pool: Pool | undefined;
 };
 
+const isRemote = process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost");
+
 const pool =
   globalForDb.pool ??
   new Pool({
     connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/storybook",
+    ssl: isRemote ? { rejectUnauthorized: false } : undefined,
   });
 
 if (process.env.NODE_ENV !== "production") {
