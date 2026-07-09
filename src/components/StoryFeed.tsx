@@ -47,17 +47,17 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
   };
 
   return (
-    <div className="flex flex-col h-full bg-slate-900/40 border border-slate-800 rounded-xl overflow-hidden backdrop-blur-sm">
+    <div className="flex flex-col h-full bg-card border border-border rounded-2xl overflow-hidden shadow-sm">
       {/* Top Menu / Quick Actions */}
-      <div className="flex justify-between items-center bg-slate-950/60 px-4 py-2 border-b border-slate-800">
-        <span className="text-sm font-semibold text-slate-400">Story Transcript</span>
+      <div className="flex justify-between items-center bg-muted/30 px-4 py-3 border-b border-border">
+        <span className="text-sm font-bold text-foreground font-serif">Story Transcript</span>
         <div className="flex items-center gap-2">
           <Button
             size="sm"
             variant="outline"
             onClick={onUndo}
             disabled={logs.length < 2}
-            className="border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-red-400 h-8 text-xs gap-1"
+            className="border-border hover:bg-muted text-muted-foreground hover:text-destructive h-8 text-xs gap-1 rounded-lg"
             title="Step back one turn (Delete player input + last response)"
           >
             <RotateCcw className="w-3.5 h-3.5" />
@@ -68,7 +68,7 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
             variant="outline"
             onClick={onReroll}
             disabled={logs.length === 0}
-            className="border-slate-800 hover:bg-slate-900 text-slate-400 hover:text-violet-400 h-8 text-xs gap-1"
+            className="border-border hover:bg-muted text-muted-foreground hover:text-primary h-8 text-xs gap-1 rounded-lg"
             title="Reroll last NPC response"
           >
             <HelpCircle className="w-3.5 h-3.5" />
@@ -85,17 +85,17 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
 
             if (isEditing) {
               return (
-                <div key={msg.id} className="p-3 rounded-lg bg-slate-950 border border-violet-500/50 space-y-2 animate-in fade-in duration-200">
+                <div key={msg.id} className="p-3 rounded-xl bg-card border border-primary/50 space-y-2 animate-in fade-in duration-200">
                   <Textarea
                     value={editText}
                     onChange={(e) => setEditText(e.target.value)}
-                    className="bg-slate-900 border-slate-800 text-slate-100 min-h-[60px]"
+                    className="bg-background border-border text-foreground min-h-[60px] rounded-lg"
                   />
                   <div className="flex justify-end gap-2">
-                    <Button size="icon" variant="outline" onClick={() => setEditingId(null)} className="h-7 w-7 text-slate-400 border-slate-800">
+                    <Button size="icon" variant="outline" onClick={() => setEditingId(null)} className="h-7 w-7 text-muted-foreground border-border rounded-lg">
                       <X className="w-3.5 h-3.5" />
                     </Button>
-                    <Button size="icon" className="h-7 w-7 bg-violet-600 hover:bg-violet-500" onClick={() => saveEdit(msg.id)}>
+                    <Button size="icon" className="h-7 w-7 bg-primary hover:bg-primary/95 text-primary-foreground rounded-lg" onClick={() => saveEdit(msg.id)}>
                       <Check className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -106,18 +106,18 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
             return (
               <div
                 key={msg.id}
-                className={`group relative p-3 rounded-lg border transition-all ${
+                className={`group relative p-4 rounded-xl border transition-all ${
                   msg.isSystem
-                    ? "bg-slate-950/60 border-slate-900/60 text-slate-350"
+                    ? "bg-muted/30 border-border/40 text-muted-foreground font-mono"
                     : msg.speaker === "You"
-                    ? "bg-violet-950/20 border-violet-900/30 text-slate-100 ml-6"
-                    : "bg-slate-950/30 border-slate-900/20 text-slate-200 mr-6"
+                    ? "bg-primary/5 border-primary/10 text-foreground ml-6 shadow-sm"
+                    : "bg-muted/10 border-border/30 text-foreground mr-6 shadow-sm"
                 }`}
               >
                 {/* Floating Edit Button (visible on hover) */}
                 <button
                   onClick={() => startEdit(msg)}
-                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-slate-500 hover:text-violet-400 rounded hover:bg-slate-900"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 text-muted-foreground hover:text-primary rounded hover:bg-muted cursor-pointer"
                   title="Edit message"
                 >
                   <Edit2 className="w-3.5 h-3.5" />
@@ -125,11 +125,11 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
 
                 {/* Content Render */}
                 {msg.isSystem ? (
-                  <div className="text-xs font-mono text-slate-400">{msg.text}</div>
+                  <div className="text-xs italic leading-relaxed">{msg.text}</div>
                 ) : (
-                  <div className="space-y-1">
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-violet-400">{msg.speaker}</div>
-                    <div className="text-sm leading-relaxed whitespace-pre-wrap">
+                  <div className="space-y-1.5">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-primary font-sans">{msg.speaker}</div>
+                    <div className="text-base leading-relaxed whitespace-pre-wrap font-serif text-foreground/90">
                       {(() => {
                         const cleanText = msg.text.replace(/\[Speech\]|\[Action\]/g, "").trim();
                         // Split by double quotes, keeping the quotes
@@ -140,13 +140,13 @@ export default function StoryFeed({ logs, onEdit, onUndo, onReroll }: StoryFeedP
                               const isQuote = part.startsWith('"') && part.endsWith('"');
                               if (isQuote) {
                                 return (
-                                  <span key={idx} className="text-slate-100 font-medium">
+                                  <span key={idx} className="text-foreground font-medium italic">
                                     {part}
                                   </span>
                                 );
                               }
                               return (
-                                <span key={idx} className="text-slate-400">
+                                <span key={idx} className="text-foreground/80">
                                   {part}
                                 </span>
                               );

@@ -115,8 +115,8 @@ function StoryActiveContainer() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 space-y-4">
-        <Cpu className="w-10 h-10 animate-spin text-violet-400" />
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-muted-foreground space-y-4">
+        <Cpu className="w-10 h-10 animate-spin text-primary" />
         <span className="text-sm font-medium animate-pulse">Initializing story state...</span>
       </div>
     );
@@ -124,11 +124,11 @@ function StoryActiveContainer() {
 
   if (error && !currentLocationName) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 p-6 space-y-4">
-        <AlertCircle className="w-10 h-10 text-red-500" />
-        <span className="text-md font-bold text-slate-200">Error Loading Story</span>
-        <p className="text-xs text-slate-500 text-center max-w-sm">{error}</p>
-        <Button variant="outline" className="border-slate-800" onClick={() => router.push("/")}>
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center text-muted-foreground p-6 space-y-4">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <span className="text-md font-bold text-foreground">Error Loading Story</span>
+        <p className="text-xs text-muted-foreground text-center max-w-sm">{error}</p>
+        <Button variant="outline" className="border-border text-foreground hover:bg-muted" onClick={() => router.push("/")}>
           <ArrowLeft className="w-4 h-4 mr-2" />
           Back to Dashboard
         </Button>
@@ -137,24 +137,24 @@ function StoryActiveContainer() {
   }
 
   return (
-    <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-50 flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
+    <div className="h-screen w-screen overflow-hidden bg-background text-foreground flex flex-col">
       
       {/* 1. Header Area */}
-      <header className="flex justify-between items-center border-b border-slate-900 bg-slate-950/80 backdrop-blur-md px-4 sm:px-6 py-2.5 shrink-0">
+      <header className="flex justify-between items-center border-b border-border bg-card px-4 sm:px-6 py-3 shrink-0">
         <div className="flex items-center gap-3">
           <Button 
             size="icon" 
             variant="ghost" 
             onClick={() => router.push("/")}
-            className="text-slate-400 hover:text-slate-200 hover:bg-slate-900 h-8 w-8"
+            className="text-muted-foreground hover:text-primary hover:bg-muted h-8 w-8"
           >
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <div>
-            <h1 className="text-sm sm:text-md font-bold text-slate-200">
+            <h1 className="text-sm sm:text-base font-bold text-foreground font-serif">
               {currentLocationName || "Story Chambers"}
             </h1>
-            <p className="text-[10px] text-slate-500 font-mono hidden sm:block">
+            <p className="text-[10px] text-muted-foreground font-mono hidden sm:block">
               Coordinates: {sensoryTags.join(", ")}
             </p>
           </div>
@@ -163,31 +163,31 @@ function StoryActiveContainer() {
         <div className="flex items-center gap-2">
           {/* Collapsible Director Console (Desktop Drawer) */}
           <Sheet>
-            <SheetTrigger className="flex items-center gap-1.5 h-8 px-3 text-xs font-medium rounded-md text-slate-400 hover:text-violet-400 hover:bg-slate-900 transition-colors cursor-pointer border border-transparent hover:border-slate-800">
+            <SheetTrigger className="flex items-center gap-1.5 h-8 px-3 text-xs font-semibold rounded-lg text-muted-foreground hover:text-primary hover:bg-muted transition-colors cursor-pointer border border-border">
               <Terminal className="w-4 h-4" />
               <span className="hidden sm:inline">GM Console</span>
             </SheetTrigger>
-            <SheetContent side="right" className="bg-slate-950 border-slate-900 text-slate-100 max-w-[420px] w-full p-4 flex flex-col">
-              <SheetHeader className="pb-3 border-b border-slate-900">
-                <SheetTitle className="text-violet-400 flex items-center gap-2">
+            <SheetContent side="right" className="bg-card border-l border-border text-foreground max-w-[420px] w-full p-6 flex flex-col">
+              <SheetHeader className="pb-3 border-b border-border">
+                <SheetTitle className="text-primary flex items-center gap-2 font-serif">
                   <Terminal className="w-4 h-4" />
                   Under the Hood Console
                 </SheetTitle>
-                <SheetDescription className="text-slate-500">
+                <SheetDescription className="text-muted-foreground">
                   Track character private logs and GM thoughts in real-time.
                 </SheetDescription>
               </SheetHeader>
               <ScrollArea className="flex-1 mt-4">
                 <div className="space-y-4">
                   {directorLogs.map((log) => (
-                    <div key={log.id} className="p-3 rounded-lg bg-slate-900/60 border border-slate-900 space-y-1.5 text-xs">
-                      <div className="flex justify-between items-center text-[10px] font-bold text-violet-400">
+                    <div key={log.id} className="p-3 rounded-xl bg-muted/40 border border-border space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-primary">
                         <span>{log.charName} (Thoughts)</span>
-                        <span className="text-slate-600 font-mono">
+                        <span className="text-muted-foreground font-mono">
                           {new Date(log.createdAt).toLocaleTimeString()}
                         </span>
                       </div>
-                      <p className="text-slate-350 leading-relaxed italic">{log.content}</p>
+                      <p className="text-foreground/80 leading-relaxed italic">{log.content}</p>
                     </div>
                   ))}
                 </div>
@@ -198,16 +198,16 @@ function StoryActiveContainer() {
       </header>
 
       {/* 2. Room Description Panel (Sensory description - compact subheader row) */}
-      <div className="bg-slate-950/40 px-5 py-2 border-b border-slate-900 shrink-0 flex items-center justify-between gap-4">
+      <div className="bg-card px-5 py-2.5 border-b border-border shrink-0 flex items-center justify-between gap-4">
         <div className="flex-1 text-left">
-          <span className="text-[10px] text-violet-450 font-bold uppercase tracking-wider block leading-none mb-0.5">Current Room Details</span>
-          <p className="text-xs text-slate-350 line-clamp-1 leading-relaxed">
+          <span className="text-[10px] text-primary font-bold uppercase tracking-wider block leading-none mb-0.5">Current Room Details</span>
+          <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
             {currentLocationDesc}
           </p>
         </div>
         <div className="flex gap-1.5 shrink-0">
           {sensoryTags.map((tag, idx) => (
-            <span key={idx} className="text-[9px] px-1.5 py-0.5 rounded bg-slate-900 border border-slate-850 text-slate-500 font-mono">
+            <span key={idx} className="text-[9px] px-2.5 py-0.5 rounded-full bg-muted border border-border text-muted-foreground font-mono">
               {tag}
             </span>
           ))}
@@ -235,12 +235,12 @@ function StoryActiveContainer() {
 
           {/* Action Input Block */}
           <div className="flex flex-col gap-2 shrink-0">
-            <div className="flex justify-between items-center bg-slate-950/40 border border-slate-900 rounded-lg p-1 max-w-[280px] w-full self-start">
+            <div className="flex justify-between items-center bg-muted border border-border rounded-xl p-1 max-w-[280px] w-full self-start">
               <Button
                 size="sm"
                 variant={actionType === "speech" ? "default" : "ghost"}
                 onClick={() => setActionType("speech")}
-                className={`text-[10px] h-7 w-28 uppercase ${actionType === "speech" ? "bg-violet-600 hover:bg-violet-500" : "text-slate-500"}`}
+                className={`text-[10px] h-7 w-28 uppercase rounded-lg font-semibold ${actionType === "speech" ? "bg-primary text-primary-foreground hover:bg-primary/95" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Speech
               </Button>
@@ -248,7 +248,7 @@ function StoryActiveContainer() {
                 size="sm"
                 variant={actionType === "action" ? "default" : "ghost"}
                 onClick={() => setActionType("action")}
-                className={`text-[10px] h-7 w-28 uppercase ${actionType === "action" ? "bg-violet-600 hover:bg-violet-500" : "text-slate-500"}`}
+                className={`text-[10px] h-7 w-28 uppercase rounded-lg font-semibold ${actionType === "action" ? "bg-primary text-primary-foreground hover:bg-primary/95" : "text-muted-foreground hover:text-foreground"}`}
               >
                 Propose Action
               </Button>
@@ -264,20 +264,20 @@ function StoryActiveContainer() {
                     ? "Say something to the room..."
                     : "Describe what you attempt to do (e.g. Try to unlock chest)..."
                 }
-                className="bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-600 focus-visible:ring-violet-500 h-10 flex-1"
+                className="bg-card border-border text-foreground placeholder-muted-foreground focus-visible:ring-primary h-10 flex-1 rounded-xl"
                 disabled={submitting}
               />
               <Button 
                 onClick={handleSend}
                 disabled={!inputVal.trim() || submitting}
-                className="bg-violet-600 hover:bg-violet-500 shadow-md h-10 w-10 shrink-0"
+                className="bg-primary hover:bg-primary/95 text-primary-foreground shadow-md h-10 w-10 shrink-0 rounded-xl"
               >
                 <Send className="w-4 h-4" />
               </Button>
               <Button
                 onClick={() => fetchState("wait")}
                 disabled={submitting}
-                className="border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 hover:text-slate-200 h-10 text-xs px-3 gap-1 shrink-0"
+                className="border border-border bg-card hover:bg-muted text-muted-foreground hover:text-foreground h-10 text-xs px-4 gap-1.5 shrink-0 rounded-xl"
                 title="Observe what characters do next without reacting yourself"
               >
                 <Clock className="w-3.5 h-3.5" />
@@ -316,12 +316,12 @@ function StoryActiveContainer() {
 
               {/* Input block */}
               <div className="flex flex-col gap-2 shrink-0">
-                <div className="flex justify-between items-center bg-slate-950/40 border border-slate-900 rounded-lg p-1 max-w-[200px] w-full self-start">
+                <div className="flex justify-between items-center bg-muted border border-border rounded-xl p-1 max-w-[200px] w-full self-start">
                   <Button
                     size="sm"
                     variant={actionType === "speech" ? "default" : "ghost"}
                     onClick={() => setActionType("speech")}
-                    className={`text-[9px] h-6 px-3 uppercase ${actionType === "speech" ? "bg-violet-600 hover:bg-violet-500" : "text-slate-500"}`}
+                    className={`text-[9px] h-6 px-3 uppercase rounded-lg ${actionType === "speech" ? "bg-primary text-primary-foreground hover:bg-primary/95" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Speech
                   </Button>
@@ -329,7 +329,7 @@ function StoryActiveContainer() {
                     size="sm"
                     variant={actionType === "action" ? "default" : "ghost"}
                     onClick={() => setActionType("action")}
-                    className={`text-[9px] h-6 px-3 uppercase ${actionType === "action" ? "bg-violet-600 hover:bg-violet-500" : "text-slate-500"}`}
+                    className={`text-[9px] h-6 px-3 uppercase rounded-lg ${actionType === "action" ? "bg-primary text-primary-foreground hover:bg-primary/95" : "text-muted-foreground hover:text-foreground"}`}
                   >
                     Action
                   </Button>
@@ -343,20 +343,20 @@ function StoryActiveContainer() {
                     placeholder={
                       actionType === "speech" ? "Speak..." : "Attempt..."
                     }
-                    className="bg-slate-900 border-slate-800 text-slate-100 placeholder-slate-600 focus-visible:ring-violet-500 h-9 flex-1"
+                    className="bg-card border-border text-foreground placeholder-muted-foreground focus-visible:ring-primary h-9 flex-1 rounded-xl"
                     disabled={submitting}
                   />
                   <Button 
                     onClick={handleSend}
                     disabled={!inputVal.trim() || submitting}
-                    className="bg-violet-600 hover:bg-violet-500 h-9 w-9 shrink-0"
+                    className="bg-primary hover:bg-primary/95 h-9 w-9 shrink-0 rounded-xl"
                   >
                     <Send className="w-3.5 h-3.5" />
                   </Button>
                   <Button
                     onClick={() => fetchState("wait")}
                     disabled={submitting}
-                    className="border border-slate-800 bg-slate-950 hover:bg-slate-900 text-slate-400 h-9 px-2.5 shrink-0"
+                    className="border border-border bg-card hover:bg-muted text-muted-foreground h-9 px-2.5 shrink-0 rounded-xl"
                   >
                     <Clock className="w-3.5 h-3.5" />
                   </Button>
@@ -377,25 +377,25 @@ function StoryActiveContainer() {
               />
             </TabsContent>
 
-            <TabsContent value="console" className="h-full m-0 overflow-hidden flex flex-col bg-slate-900/40 border border-slate-800 rounded-xl p-4">
-              <div className="text-sm font-semibold text-slate-400 mb-3 flex items-center gap-1.5">
-                <Terminal className="w-4 h-4 text-violet-400" />
+            <TabsContent value="console" className="h-full m-0 overflow-hidden flex flex-col bg-card border border-border rounded-2xl p-4">
+              <div className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-1.5">
+                <Terminal className="w-4 h-4 text-primary" />
                 Director Console Logs
               </div>
               <ScrollArea className="flex-1">
                 <div className="space-y-3">
                   {directorLogs.length === 0 ? (
-                    <span className="text-xs text-slate-600 italic block py-4 text-center">No logs generated yet.</span>
+                    <span className="text-xs text-muted-foreground italic block py-4 text-center">No logs generated yet.</span>
                   ) : (
                     directorLogs.map((log) => (
-                      <div key={log.id} className="p-3 rounded-lg bg-slate-950/60 border border-slate-900 space-y-1 text-xs">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-violet-400">
+                      <div key={log.id} className="p-3 rounded-xl bg-muted/40 border border-border space-y-1 text-xs">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-primary">
                           <span>{log.charName} (Thoughts)</span>
-                          <span className="text-slate-600 font-mono">
+                          <span className="text-muted-foreground font-mono">
                             {new Date(log.createdAt).toLocaleTimeString()}
                           </span>
                         </div>
-                        <p className="text-slate-350 leading-relaxed italic">{log.content}</p>
+                        <p className="text-foreground/80 leading-relaxed italic">{log.content}</p>
                       </div>
                     ))
                   )}
@@ -405,20 +405,20 @@ function StoryActiveContainer() {
           </div>
 
           {/* Sticky Bottom Tab bar (Mobile only) */}
-          <TabsList className="bg-slate-950 border-t border-slate-900 w-full rounded-none h-14 grid grid-cols-4 shrink-0 p-1">
-            <TabsTrigger value="story" className="flex flex-col items-center justify-center gap-0.5 text-slate-500 data-[state=active]:text-violet-400 data-[state=active]:bg-transparent">
+          <TabsList className="bg-card border-t border-border w-full rounded-none h-14 grid grid-cols-4 shrink-0 p-1">
+            <TabsTrigger value="story" className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent">
               <MessageSquare className="w-4.5 h-4.5" />
               <span className="text-[9px] uppercase tracking-wide">Story</span>
             </TabsTrigger>
-            <TabsTrigger value="map" className="flex flex-col items-center justify-center gap-0.5 text-slate-500 data-[state=active]:text-violet-400 data-[state=active]:bg-transparent">
+            <TabsTrigger value="map" className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent">
               <Compass className="w-4.5 h-4.5" />
               <span className="text-[9px] uppercase tracking-wide">Map</span>
             </TabsTrigger>
-            <TabsTrigger value="cast" className="flex flex-col items-center justify-center gap-0.5 text-slate-500 data-[state=active]:text-violet-400 data-[state=active]:bg-transparent">
+            <TabsTrigger value="cast" className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent">
               <Users className="w-4.5 h-4.5" />
               <span className="text-[9px] uppercase tracking-wide">Cast</span>
             </TabsTrigger>
-            <TabsTrigger value="console" className="flex flex-col items-center justify-center gap-0.5 text-slate-500 data-[state=active]:text-violet-400 data-[state=active]:bg-transparent">
+            <TabsTrigger value="console" className="flex flex-col items-center justify-center gap-0.5 text-muted-foreground data-[state=active]:text-primary data-[state=active]:bg-transparent">
               <Terminal className="w-4.5 h-4.5" />
               <span className="text-[9px] uppercase tracking-wide">GM Log</span>
             </TabsTrigger>

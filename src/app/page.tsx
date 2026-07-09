@@ -24,15 +24,15 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-50 flex flex-col items-center justify-center p-4 sm:p-8 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-black">
-      <div className="max-w-4xl w-full space-y-12">
+    <main className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-6 sm:p-12">
+      <div className="max-w-4xl w-full space-y-10">
         
         {/* Header Block */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl sm:text-6xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-violet-400 via-fuchsia-400 to-pink-500 animate-pulse">
+        <div className="text-center space-y-3">
+          <h1 className="text-5xl sm:text-7xl font-bold tracking-tight text-primary font-serif">
             Storybook
           </h1>
-          <p className="text-slate-400 text-lg sm:text-xl font-light max-w-2xl mx-auto">
+          <p className="text-muted-foreground text-base sm:text-lg max-w-2xl mx-auto font-sans leading-relaxed">
             An interactive, multi-agent narrative roleplay engine. Experience living worlds where characters act independently, hold private agendas, and scheme in secret.
           </p>
         </div>
